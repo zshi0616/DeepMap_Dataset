@@ -1,10 +1,5 @@
-aig
-*_aig
-npz
-output
 tmp 
 dataset
-raw_data
 
 simulator/simulator
 simulator/wl_simulator
@@ -15,7 +10,6 @@ simulator/*.txt
 *.csv
 
 *__pycache__
-*.pyc
 .vscode
 .DS_Store
 
