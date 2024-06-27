@@ -16,6 +16,9 @@ from utils.utils import hash_arr, run_command
 import deepgate as dg
 import time
 import threading
+from collections import deque, defaultdict
+
+PO_KEYS = ['.X', '.Y', '.ZN']
 
 def remove_unconnected(x_data, edge_index):
     new_x_data = []
@@ -944,14 +947,72 @@ def aig_simulation(x_data, edge_index_data, num_patterns=15000):
 
     return y1
 
-def get_level(x_data, PI_index, fanout_list):
+def find_loop(fanout_list):
+    num_nodes = len(fanout_list)
+    indegree = [0] * num_nodes
+    predecessor = defaultdict(list)
+    
+    for node in range(num_nodes):
+        for neighbor in fanout_list[node]:
+            indegree[neighbor] += 1
+            predecessor[neighbor].append(node)
+    
+    queue = deque([node for node in range(num_nodes) if indegree[node] == 0])
+    processed_count = 0
+    path = []
+
+    while queue:
+        node = queue.popleft()
+        processed_count += 1
+        path.append(node)
+        for neighbor in fanout_list[node]:
+            indegree[neighbor] -= 1
+            if indegree[neighbor] == 0:
+                queue.append(neighbor)
+    
+    if processed_count == num_nodes:
+        return None  # 无环
+
+    # 找到一个环，构建环的路径
+    for node in range(num_nodes):
+        if indegree[node] > 0:
+            cycle = []
+            while node not in cycle:
+                cycle.append(node)
+                node = predecessor[node][0]
+            cycle.reverse()
+            return cycle
+
+# def get_level(x_data, fanin_list, fanout_list):
+#     num_nodes = len(fanout_list)
+#     levels = [-1] * num_nodes  # -1 表示未访问
+
+#     queue = deque()
+#     for node in range(num_nodes):
+#         if not fanin_list[node]:  # 如果没有前驱节点
+#             levels[node] = 0
+#             queue.append(node)
+
+#     while queue:
+#         node = queue.popleft()
+#         for neighbor in fanout_list[node]:
+#             if levels[neighbor] == -1:  # 如果尚未访问
+#                 levels[neighbor] = levels[node] + 1
+#                 queue.append(neighbor)
+    
+#     level_list = [[] for _ in range(max(levels) + 1)]
+#     for node in range(num_nodes):
+#         level_list[levels[node]].append(node)
+#     return level_list
+
+def get_level(x_data, fanin_list, fanout_list):
     bfs_q = []
     x_level = [-1] * len(x_data)
     max_level = 0
-    for pi_idx in PI_index:
-        bfs_q.append(pi_idx)
-        x_level[pi_idx] = 0
-    
+    for idx, x_data_info in enumerate(x_data):
+        if len(fanout_list[idx]) > 0 and len(fanin_list[idx]) == 0:
+            bfs_q.append(idx)
+            x_level[idx] = 0
     while len(bfs_q) > 0:
         idx = bfs_q[-1]
         bfs_q.pop()
@@ -1423,6 +1484,8 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, PI_index, PO_in
     for idx in range(no_nodes):
         if x_data[idx][1] == '_PI':
             f.write('{} {}\n'.format(x_data_level[idx], 'PI'))
+        elif 'C1' in x_data[idx][1] or 'C0' in x_data[idx][1]:
+            f.write('{} {}\n'.format(x_data_level[idx], x_data[idx][1]))
         else:
             f.write('{} {}\n'.format(x_data_level[idx], cell_dict[x_data[idx][1]]['tt']))
     for idx in range(no_nodes):
@@ -1727,11 +1790,11 @@ def parse_v(v_path):
         line = lines[tp]
         # Parse input 
         if 'input' in line:
-            input_txt = line.replace('\n', '')
-            tp += 1
-            while ';' not in lines[tp]:
-                input_txt += lines[tp].replace('\n', '')
+            input_txt = ''
+            while ';' not in line:
+                input_txt += line.replace('\n', '')
                 tp += 1
+                line = lines[tp]
             input_txt += lines[tp].replace('\n', '')
             input_txt = input_txt.replace('\n', '').replace('input', '').replace(';', '').replace(' ', '')
             input_arr = input_txt.split(',')
@@ -1744,11 +1807,11 @@ def parse_v(v_path):
         
         # Parse output
         if 'output' in line:
-            output_txt = line.replace('\n', '')
-            tp += 1
-            while ';' not in lines[tp]:
-                output_txt += lines[tp].replace('\n', '')
+            output_txt = ''
+            while ';' not in line:
+                output_txt += line.replace('\n', '')
                 tp += 1
+                line = lines[tp]
             output_txt += lines[tp].replace('\n', '')
             output_txt = output_txt.replace('\n', '').replace('output', '').replace(';', '').replace(' ', '')
             output_arr = output_txt.split(',')
@@ -1761,11 +1824,11 @@ def parse_v(v_path):
         
         # Parse wire 
         if 'wire' in line:
-            wire_txt = line.replace('\n', '')
-            tp += 1
-            while ';' not in lines[tp]:
-                wire_txt += lines[tp].replace('\n', '')
+            wire_txt = ''
+            while ';' not in line:
+                wire_txt += line.replace('\n', '')
                 tp += 1
+                line = lines[tp]
             wire_txt += lines[tp].replace('\n', '')
             wire_txt = wire_txt.replace('\n', '').replace('wire', '').replace(';', '').replace(' ', '')
             wire_arr = wire_txt.split(',')
@@ -1776,7 +1839,12 @@ def parse_v(v_path):
                 fanout_list.append([])
         
         # Cells 
-        if '.Y' in line:
+        find_cell_key = False
+        for cell_key in PO_KEYS:
+            if cell_key in line:
+                find_cell_key = True
+                break
+        if find_cell_key:
             line = line.lstrip()
             cell_name = line.split(' ')[0]
             # Find the cell instantiation
@@ -1793,7 +1861,12 @@ def parse_v(v_path):
             # Parse cell txt
             fi_list = []
             for ele in arr:
-                if '.Y' in ele:
+                find_cell_key = False
+                for cell_key in PO_KEYS:
+                    if cell_key in ele:
+                        find_cell_key = True
+                        break
+                if find_cell_key:
                     pin_name = ele.split('(')[-1].split(')')[0]
                     fo_idx = name2idx[pin_name]
                 else:
@@ -1805,6 +1878,13 @@ def parse_v(v_path):
             fanin_list[fo_idx] = fi_list
             for fi_idx in fi_list:
                 fanout_list[fi_idx].append(fo_idx)
+        
+        # Constraint
+        if 'assign' in line:
+            arr = line.replace('assign', '').replace('\n', '').replace(' ', '').split('=')
+            fo_idx = name2idx[arr[0]]
+            value = 0 if '0' in arr[1] else 1
+            x_data[fo_idx][1] = 'C{}'.format(value)
                                 
         tp += 1
     

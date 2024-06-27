@@ -60,6 +60,7 @@ int main(int argc, char **argv)
     vector<vector<int> > fanout_list(n);
     vector<int> gate_levels(n);
     vector<int> pi_list;
+    vector<bool> const_0(n), const_1(n); 
     int max_level = 0;
 
     for (int k=0; k<n; k++) {
@@ -72,6 +73,12 @@ int main(int argc, char **argv)
         if (tt_str[0] == 'P') {
             tt.push_back(-1);
             pi_list.push_back(k);
+        }
+        else if (tt_str[0] == 'C') {
+            if (tt_str[1] == '0') 
+                const_0[k] = true;
+            else if (tt_str[1] == '1')
+                const_1[k] = true;
         }
         else {
             for (char c : tt_str) {
@@ -130,9 +137,22 @@ int main(int argc, char **argv)
             states[pi] = rand() % int(std::pow(2, STATE_WIDTH)); 
             // cout << "PI: " << pi << " " << states[pi] << endl;
         }
+        // Const 0 and 1
+        rep (k, n) {
+            if (const_0[k]) {
+                states[k] = 0;
+            }
+            if (const_1[k]) {
+                states[k] = (uint64_t)std::pow(2, STATE_WIDTH) - 1;
+            }
+        }
         // Logic Simulation 
         for (int l = 1; l < max_level+1; l++) {
             for (int gate: level_list[l]) {
+                // Const 0 and 1 
+                if (const_0[gate] or const_1[gate]) {
+                    continue;
+                }
                 // Find truth table 
                 vector<int> fanin_state; 
                 for (int fanin: fanin_list[gate]) {
