@@ -13,5 +13,4 @@ simulator/*.txt
 .vscode
 .DS_Store
 
-epfl
-genlib
+raw_data
