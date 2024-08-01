@@ -19,6 +19,7 @@ import threading
 from collections import deque, defaultdict
 
 PO_KEYS = ['.X', '.Y', '.ZN']
+CELL_KEYS = PO_KEYS + ['.A', '.B', '.C']
 
 def remove_unconnected(x_data, edge_index):
     new_x_data = []
@@ -1443,7 +1444,7 @@ def get_fanin_fanout_cone(g, max_no_nodes=512):
     
     return fanin_fanout_cones
 
-def cpp_simulation( x_data, fanin_list, fanout_list, level_list, PI_index, PO_index, cell_dict, 
+def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict, 
                     no_patterns=15000, 
                     simulator='./simulator/simulator', 
                     graph_filepath='', 
@@ -1482,7 +1483,7 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, PI_index, PO_in
     f = open(graph_filepath, 'w')
     f.write('{} {}\n'.format(no_nodes, no_patterns))
     for idx in range(no_nodes):
-        if x_data[idx][1] == '_PI':
+        if x_data[idx][1] == '_PI' or x_data[idx][1] == 'PI':
             f.write('{} {}\n'.format(x_data_level[idx], 'PI'))
         elif 'C1' in x_data[idx][1] or 'C0' in x_data[idx][1]:
             f.write('{} {}\n'.format(x_data_level[idx], x_data[idx][1]))
@@ -1784,10 +1785,14 @@ def parse_v(v_path):
     PI_index = []
     PO_index = []
     name2idx = {}
+    cellname_list = []
     
     tp = 0
     while tp < len(lines):
         line = lines[tp]
+        if line.lstrip()[:2] == '//':
+            tp += 1
+            continue
         # Parse input 
         if 'input' in line:
             input_txt = ''
@@ -1802,6 +1807,7 @@ def parse_v(v_path):
                 name2idx[pi_name] = len(x_data)
                 PI_index.append(len(x_data))
                 x_data.append([pi_name, '_PI'])
+                cellname_list.append('PI')
                 fanin_list.append([])
                 fanout_list.append([])
         
@@ -1819,6 +1825,7 @@ def parse_v(v_path):
                 name2idx[po_name] = len(x_data)
                 PO_index.append(len(x_data))
                 x_data.append([po_name, '_PO'])
+                cellname_list.append('PO')
                 fanin_list.append([])
                 fanout_list.append([])
         
@@ -1835,18 +1842,24 @@ def parse_v(v_path):
             for wire_name in wire_arr:
                 name2idx[wire_name] = len(x_data)
                 x_data.append([wire_name, '_WIRE'])
+                cellname_list.append('WIRE')
                 fanin_list.append([])
                 fanout_list.append([])
         
         # Cells 
         find_cell_key = False
-        for cell_key in PO_KEYS:
+        for cell_key in CELL_KEYS:
             if cell_key in line:
                 find_cell_key = True
                 break
         if find_cell_key:
-            line = line.lstrip()
-            cell_name = line.split(' ')[0]
+            line = line.lstrip().replace('\n', '')
+            while ';' not in line:
+                tp += 1
+                line += lines[tp].lstrip().replace('\n', '')
+            
+            cell_type = line.split(' ')[0]
+            cell_name = line.split(' ')[1]
             # Find the cell instantiation
             left_idx = -1
             right_idx = -1
@@ -1874,10 +1887,11 @@ def parse_v(v_path):
                     fi_idx = name2idx[pin_name]
                     fi_list.append(fi_idx)
             # Save to x_data 
-            x_data[fo_idx][1] = cell_name
+            x_data[fo_idx][1] = cell_type
             fanin_list[fo_idx] = fi_list
             for fi_idx in fi_list:
                 fanout_list[fi_idx].append(fo_idx)
+            cellname_list[fo_idx] = cell_name
         
         # Constraint
         if 'assign' in line:
@@ -1888,4 +1902,4 @@ def parse_v(v_path):
                                 
         tp += 1
     
-    return x_data, fanin_list, fanout_list, PI_index, PO_index
+    return x_data, fanin_list, fanout_list, PI_index, PO_index, cellname_list
