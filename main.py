@@ -14,8 +14,9 @@ from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 
 sdf_dir = 'deepgate_dataset/sdf'
-save_graph_npz = 'deepgate_dataset/graphs.npz'
 genlib_path = './raw_data/genlib/sky130.csv'
+
+save_graph_npz = 'deepgate_dataset/graphs.npz'
 
 class OrderedData(Data):
     def __init__(self): 
