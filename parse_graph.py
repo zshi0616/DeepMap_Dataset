@@ -77,9 +77,13 @@ def parse_sdf(file_path):
             order = []
             for ele_idx, ele in enumerate(raw_order):
                 if 'posedge' in ele:
-                    order.append(ele.split(' ')[1].split(')')[0])
+                    pin_name = ele.split(' ')[1].split(')')[0]
+                    if pin_name not in order:
+                        order.append(pin_name)
                 elif 'negedge' in ele:
-                    pass
+                    pin_name = ele.split(' ')[1].split(')')[0]
+                    if pin_name not in order:
+                        order.append(pin_name)
                 else:
                     order.append(ele.split(' ')[0])
             
