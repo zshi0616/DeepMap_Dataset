@@ -59,42 +59,52 @@ def parse_sdf(file_path):
         interconnects = interconnect_re.findall(content)
         cells = cell_re.findall(content)
         
-    # 解析 cells 并更新 x_data 中的类型，同时记录每个cell的pin顺序
-    iopath_re = re.compile(r'\(IOPATH (.*?) \(')
-    cell_pin_order = {}
+    # 不考虑顺序
     for cell_type, instance in cells:
         if instance in instance_map:
             index = instance_map[instance]
             x_data[index][1] = cell_type
+            for idx, (fanin, pin) in enumerate(fanin_list_wpin[index]):
+                fanin_list[index].append(fanin)
+                fanout_list[fanin].append(index)
+        
+    # # 解析 cells 并更新 x_data 中的类型，同时记录每个cell的pin顺序
+    # iopath_re = re.compile(r'\(IOPATH (.*?) \(')
+    # cell_pin_order = {}
+    # for cell_type, instance in cells:
+    #     if instance in instance_map:
+    #         index = instance_map[instance]
+    #         x_data[index][1] = cell_type
             
-            # 记录pin的顺序
-            cell_pattern = r'\(CELL\s+\(CELLTYPE "{}"\)\s+\(INSTANCE {}\)(.*?)\)\n\)'.format(re.escape(cell_type), re.escape(instance))
-            match = re.search(cell_pattern, content, re.DOTALL)
-            cell_content = match.group(0) if match else None
-            if cell_content:
-                matches = iopath_re.findall(cell_content)
-                raw_order = [match for match in matches]
-            order = []
-            for ele_idx, ele in enumerate(raw_order):
-                if 'posedge' in ele:
-                    pin_name = ele.split(' ')[1].split(')')[0]
-                    if pin_name not in order:
-                        order.append(pin_name)
-                elif 'negedge' in ele:
-                    pin_name = ele.split(' ')[1].split(')')[0]
-                    if pin_name not in order:
-                        order.append(pin_name)
-                else:
-                    order.append(ele.split(' ')[0])
+    #         # 记录pin的顺序
+    #         cell_pattern = r'\(CELL\s+\(CELLTYPE "{}"\)\s+\(INSTANCE {}\)(.*?)\)\n\)'.format(re.escape(cell_type), re.escape(instance))
+    #         match = re.search(cell_pattern, content, re.DOTALL)
+    #         cell_content = match.group(0) if match else None
+    #         if cell_content:
+    #             matches = iopath_re.findall(cell_content)
+    #             raw_order = [match for match in matches]
+    #         order = []
+    #         for ele_idx, ele in enumerate(raw_order):
+    #             if 'posedge' in ele:
+    #                 pin_name = ele.split(' ')[1].split(')')[0]
+    #                 if pin_name not in order:
+    #                     order.append(pin_name)
+    #             elif 'negedge' in ele:
+    #                 pin_name = ele.split(' ')[1].split(')')[0]
+    #                 if pin_name not in order:
+    #                     order.append(pin_name)
+    #             else:
+    #                 order.append(ele.split(' ')[0])
             
-            # Reorder 
-            assert len(order) == len(fanin_list_wpin[index])
-            fanin_list[index] = [None] * len(order)
-            for input_pin in order:
-                for idx, (fanin, pin) in enumerate(fanin_list_wpin[index]):
-                    if pin == input_pin:
-                        fanin_list[index][idx] = fanin
-                        fanout_list[fanin].append(index)
+    #         # Reorder: # TODO: Change here
+    #         assert len(order) == len(fanin_list_wpin[index])
+            
+    #         fanin_list[index] = [None] * len(order)
+    #         for input_pin in order:
+    #             for idx, (fanin, pin) in enumerate(fanin_list_wpin[index]):
+    #                 if pin == input_pin:
+    #                     fanin_list[index][idx] = fanin
+    #                     fanout_list[fanin].append(index)
 
 
     return x_data, edge_index, fanin_list, fanout_list

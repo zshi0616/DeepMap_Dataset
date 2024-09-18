@@ -13,10 +13,11 @@ from utils.utils import run_command, hash_arr
 from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 
-raw_dir = 'LCM_output'
+raw_dir = 'LCM_output_flatten'
 genlib_path = './raw_data/genlib/sky130.csv'
 
 save_graph_npz = 'LCM_dataset/graphs.npz'
+ff_keys = 'dfrtp'
 
 class OrderedData(Data):
     def __init__(self): 
@@ -25,15 +26,14 @@ class OrderedData(Data):
 if __name__ == '__main__':
     cell_dict = circuit_utils.parse_genlib(genlib_path)
     sdf_list = glob.glob(os.path.join(raw_dir, '*/*.sdf'))
-    aig_list = glob.glob(os.path.join(raw_dir, '*/*.aig'))
     tot_time = 0
     graphs = {}
     
-    for aig_k, aig_path in enumerate(aig_list):
+    for sdf_k, sdf_path in enumerate(sdf_list):
+        print('\n===============================================')
+        print(sdf_path)
         start_time = time.time()
-        # circuit_name = os.path.basename(sdf_path).split('.')[0]
-        circuit_name = aig_path.split('/')[-2]
-        sdf_path = os.path.join(raw_dir, circuit_name, 'top.sdf')
+        circuit_name = sdf_path.split('/')[-2]
         if not os.path.exists(sdf_path):
             print('[INFO] Skip: {:}, No SDF'.format(circuit_name))
             continue
@@ -42,20 +42,20 @@ if __name__ == '__main__':
         x_data, edge_index, fanin_list, fanout_list = parse_sdf(sdf_path)
         
         # Remove FF, convert seq to comb 
-        x_data, edge_index, fanin_list, fanout_list = circuit_utils.seq_to_comb(x_data, fanin_list)
+        x_data, edge_index, fanin_list, fanout_list = circuit_utils.seq_to_comb(x_data, fanin_list, ff_keys=ff_keys)
+        
+        # Check empty
+        if len(x_data) < 10 or len(edge_index) < 10:
+            print('[INFO] Skip empty design: {:}'.format(circuit_name))
+            continue
         
         # Statistics
         print('Parse: {} ({:} / {:}), Size: {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
-            circuit_name, aig_k, len(aig_list), len(x_data), 
-            tot_time, tot_time / ((aig_k + 1) / len(aig_list)) - tot_time, 
+            circuit_name, sdf_k, len(sdf_list), len(x_data), 
+            tot_time, tot_time / ((sdf_k + 1) / len(sdf_list)) - tot_time, 
             len(graphs)
         ))
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-        
-        # Check empty
-        if len(edge_index) < 10:
-            print('[INFO] Skip empty design: {:}'.format(circuit_name))
-            continue
         
         # Circuit features
         truth_table = []

@@ -21,11 +21,16 @@ from collections import deque, defaultdict
 PO_KEYS = ['.X', '.Y', '.ZN']
 CELL_KEYS = PO_KEYS + ['.A', '.B', '.C']
 
-def seq_to_comb(x_data, fanin_list, gate_to_index={'PI': 0, 'AND': 1, 'NOT': 2, 'DFF': 3}): 
+def seq_to_comb(x_data, fanin_list, ff_keys=[]): 
     for idx, x_data_info in enumerate(x_data):
-        if x_data_info[1] == gate_to_index['DFF']:
+        is_ff = False
+        for key in ff_keys:
+            if key in x_data_info[0]:
+                is_ff = True
+                break
+        if is_ff:
             fanin_list[idx] = []
-            x_data[idx][1] = gate_to_index['PI']
+            x_data[idx][1] = 'PI'
     edge_index = []
     fanout_list = []
     for idx, x_data_info in enumerate(x_data):
