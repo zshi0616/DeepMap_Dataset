@@ -1522,6 +1522,8 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
     # Simulation  
     sim_cmd = '{} {} {}'.format(simulator, graph_filepath, res_filepath)
     stdout, exec_time = run_command(sim_cmd)
+    if not os.path.exists(res_filepath):
+        return [], [], [], [], []
     f = open(res_filepath, 'r')
     lines = f.readlines()
     f.close()

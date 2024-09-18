@@ -92,6 +92,8 @@ if __name__ == '__main__':
             x_data, fanin_list, fanout_list, level_list, cell_dict, 
             no_patterns=15000
         )
+        if len(prob) == 0:
+            continue
         for idx in range(len(x_data)):
             if len(fanin_list[idx]) == 0 and len(fanout_list[idx]) == 0:
                 prob[idx] = 0.5
