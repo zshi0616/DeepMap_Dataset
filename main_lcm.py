@@ -38,14 +38,18 @@ if __name__ == '__main__':
             print('[INFO] Skip: {:}, No SDF'.format(circuit_name))
             continue
         
+        # Parse SDF 
         x_data, edge_index, fanin_list, fanout_list = parse_sdf(sdf_path)
         
+        # Remove FF, convert seq to comb 
+        x_data, edge_index, fanin_list, fanout_list = circuit_utils.seq_to_comb(x_data, fanin_list)
+        
+        # Statistics
         print('Parse: {} ({:} / {:}), Size: {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
             circuit_name, aig_k, len(aig_list), len(x_data), 
             tot_time, tot_time / ((aig_k + 1) / len(aig_list)) - tot_time, 
             len(graphs)
         ))
-        
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
         
         # Check empty

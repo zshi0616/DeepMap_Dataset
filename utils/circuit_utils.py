@@ -21,6 +21,22 @@ from collections import deque, defaultdict
 PO_KEYS = ['.X', '.Y', '.ZN']
 CELL_KEYS = PO_KEYS + ['.A', '.B', '.C']
 
+def seq_to_comb(x_data, fanin_list, gate_to_index={'PI': 0, 'AND': 1, 'NOT': 2, 'DFF': 3}): 
+    for idx, x_data_info in enumerate(x_data):
+        if x_data_info[1] == gate_to_index['DFF']:
+            fanin_list[idx] = []
+            x_data[idx][1] = gate_to_index['PI']
+    edge_index = []
+    fanout_list = []
+    for idx, x_data_info in enumerate(x_data):
+        fanout_list.append([])
+    for idx, x_data_info in enumerate(x_data):
+        for fanin in fanin_list[idx]:
+            edge_index.append([fanin, idx])
+            fanout_list[fanin].append(idx)
+    return x_data, edge_index, fanin_list, fanout_list
+    
+
 def remove_unconnected(x_data, edge_index):
     new_x_data = []
     new_edge_index = []
