@@ -25,7 +25,7 @@ def seq_to_comb(x_data, fanin_list, ff_keys=[]):
     for idx, x_data_info in enumerate(x_data):
         is_ff = False
         for key in ff_keys:
-            if key in x_data_info[0]:
+            if key in x_data_info[1]:
                 is_ff = True
                 break
         if is_ff:

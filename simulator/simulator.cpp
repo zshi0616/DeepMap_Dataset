@@ -7,6 +7,7 @@
 #include <time.h>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
 #define rep(p, q) for (int p=0; p<q; p++)
 #define PI 0
 #define AND 1
