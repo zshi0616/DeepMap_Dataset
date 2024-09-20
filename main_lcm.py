@@ -13,11 +13,12 @@ from utils.utils import run_command, hash_arr
 from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 
-raw_dir = 'LCM_output_flatten'
-genlib_path = './raw_data/genlib/sky130.csv'
+raw_dir = 'sdf_dir'
+genlib_path = 'genlib/sky130.csv'
 
-save_graph_npz = 'LCM_dataset/graphs.npz'
-ff_keys = 'dfrtp'
+save_graph_npz = 'graphs.npz'
+ff_keys = ['dfrtp','sky130_fd_sc_hd__edfxtp_1', 'dfrtn', 'dfxtp', 'dfbbn', 'dlrtp', 'einvn', 'dlxtp', 'dfsbp', 'dfstp', 'edfxbp']
+
 
 class OrderedData(Data):
     def __init__(self): 
@@ -25,7 +26,7 @@ class OrderedData(Data):
         
 if __name__ == '__main__':
     cell_dict = circuit_utils.parse_genlib(genlib_path)
-    sdf_list = glob.glob(os.path.join(raw_dir, '*/*.sdf'))
+    sdf_list = glob.glob(os.path.join(raw_dir, '*.sdf'))
     tot_time = 0
     graphs = {}
     
