@@ -30,6 +30,9 @@ if __name__ == '__main__':
     graphs = {}
     
     for sdf_k, sdf_path in enumerate(sdf_list):
+        if 'ALSU-Arithmetic-Logic-Shift-Unit' not in sdf_path:
+            continue
+        
         print('\n===============================================')
         print(sdf_path)
         start_time = time.time()
