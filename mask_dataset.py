@@ -13,53 +13,69 @@ from utils.utils import run_command, hash_arr
 from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 
-raw_dir = 'LCM_output_flatten'
-# genlib_path = 'genlib/sky130.csv'
+sdf_dir = 'deepgate_dataset/sdf'
 genlib_path = './raw_data/genlib/sky130.csv'
+read_graph_npz = '/Users/zhengyuanshi/studio/dataset/deepgate/graphs.npz'
+read_label_npz = '/Users/zhengyuanshi/studio/dataset/deepgate/labels.npz'
 
-save_graph_npz = 'graphs.npz'
-ff_keys = ['dfrtp','sky130_fd_sc_hd__edfxtp_1', 'dfrtn', 'dfxtp', 'dfbbn', 'dlrtp', 'einvn', 'dlxtp', 'dfsbp', 'dfstp', 'edfxbp']
-
+save_graph_npz = 'deepgate_dataset/pair_graphs.npz'
 
 class OrderedData(Data):
     def __init__(self): 
         super().__init__()
         
+def one_hot(idx, length):
+    if type(idx) is int:
+        idx = torch.LongTensor([idx]).unsqueeze(0)
+    else:
+        idx = torch.LongTensor(idx).unsqueeze(0).t()
+    x = torch.zeros((len(idx), length)).scatter_(1, idx, 1)
+    return x
+        
+def construct_node_feature(x, num_gate_types):
+    # the one-hot embedding for the gate types
+    gate_list = x[:, 1]
+    gate_list = np.float32(gate_list)
+    x_torch = one_hot(gate_list, num_gate_types)
+    # if node_reconv:
+    #     reconv = torch.tensor(x[:, 7], dtype=torch.float).unsqueeze(1)
+    #     x_torch = torch.cat([x_torch, reconv], dim=1)
+    return x_torch
+        
 if __name__ == '__main__':
+    # Parse AIG 
+    aig = np.load(read_graph_npz, allow_pickle=True)['circuits'].item()
+    aig_label = np.load(read_label_npz, allow_pickle=True)['labels'].item()
+    
+    # Parse stdlib
     cell_dict = circuit_utils.parse_genlib(genlib_path)
-    sdf_list = glob.glob(os.path.join(raw_dir, '*/*.sdf'))
+    sdf_list = glob.glob(os.path.join(sdf_dir, '*.sdf'))
     tot_time = 0
     graphs = {}
     
     for sdf_k, sdf_path in enumerate(sdf_list):
-        # if 'ALSU-Arithmetic-Logic-Shift-Unit' not in sdf_path:
-        #     continue
-        
-        print('\n===============================================')
-        print(sdf_path)
+        # Read PM
         start_time = time.time()
-        circuit_name = sdf_path.split('/')[-2]
-        if not os.path.exists(sdf_path):
-            print('[INFO] Skip: {:}, No SDF'.format(circuit_name))
-            continue
-        
-        # Parse SDF 
+        circuit_name = os.path.basename(sdf_path).split('.')[0]
         x_data, edge_index, fanin_list, fanout_list = parse_sdf(sdf_path)
         
-        # Remove FF, convert seq to comb 
-        x_data, edge_index, fanin_list, fanout_list = circuit_utils.seq_to_comb(x_data, fanin_list, ff_keys=ff_keys)
-        
-        # Check empty
-        if len(x_data) < 10 or len(edge_index) < 10:
-            print('[INFO] Skip empty design: {:}'.format(circuit_name))
+        # Read AIG
+        if circuit_name not in aig:
+            print('[INFO] Skip: {:}, No AIG'.format(circuit_name))
             continue
+        aig_x_data = aig[circuit_name]['x']
+        aig_edge_index = aig[circuit_name]['edge_index']
+        aig_edge_index = torch.tensor(aig_edge_index, dtype=torch.long).t().contiguous()
+        aig_prob = aig_label[circuit_name]['prob']
+        aig_forward_level, aig_forward_index, \
+            aig_backward_level, aig_backward_index = dg.return_order_info(aig_edge_index, len(aig_x_data))
         
-        # Statistics
         print('Parse: {} ({:} / {:}), Size: {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
             circuit_name, sdf_k, len(sdf_list), len(x_data), 
             tot_time, tot_time / ((sdf_k + 1) / len(sdf_list)) - tot_time, 
             len(graphs)
         ))
+        
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
         
         # Circuit features
@@ -77,13 +93,7 @@ if __name__ == '__main__':
                 tt = [int(tt[i]) for i in range(64)]
                 truth_table.append(tt)
                 is_PI.append(0)
-        
-        # Check loop
-        loop = circuit_utils.find_loop(fanout_list)
-        if len(loop) > 0:
-            print('Loop: ', loop)
-            continue
-              
+                
         forward_level, forward_index, backward_level, backward_index = dg.return_order_info(edge_index, len(x_data))
         level_list = circuit_utils.get_level(x_data, fanin_list, fanout_list)
         
@@ -97,14 +107,20 @@ if __name__ == '__main__':
         graph.backward_index = backward_index
         graph.forward_level = forward_level
         graph.backward_level = backward_level
+        graph.aig_x = construct_node_feature(aig_x_data, 3)
+        graph.aig_edge_index = aig_edge_index
+        graph.aig_prob = aig_prob
+        graph.aig_forward_index = aig_forward_index
+        graph.aig_backward_index = aig_backward_index
+        graph.aig_forward_level = aig_forward_level
+        graph.aig_backward_level = aig_backward_level
+        graph.aig_gate = torch.tensor(aig_x_data[:, 1:2], dtype=torch.float)
         
         # DeepGate2 labels
         prob, tt_pair_index, tt_sim, con_index, con_label = circuit_utils.cpp_simulation(
             x_data, fanin_list, fanout_list, level_list, cell_dict, 
             no_patterns=15000
         )
-        if len(prob) == 0:
-            continue
         for idx in range(len(x_data)):
             if len(fanin_list[idx]) == 0 and len(fanout_list[idx]) == 0:
                 prob[idx] = 0.5

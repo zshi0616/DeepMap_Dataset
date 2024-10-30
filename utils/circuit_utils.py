@@ -993,7 +993,9 @@ def find_loop(fanout_list):
                 queue.append(neighbor)
     
     if processed_count == num_nodes:
-        return None  # 无环
+        return []  # 无环
+    else:
+        return path
 
     # 找到一个环，构建环的路径
     for node in range(num_nodes):
