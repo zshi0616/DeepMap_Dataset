@@ -28,7 +28,7 @@ def run_command(command, timeout=-1):
     
 def hash_arr(arr):
     p = 1543
-    md = 6291469
+    md = int(1e7+1)
     hash_res = 1
     tmp_arr = arr.copy()
     tmp_arr = np.sort(tmp_arr)

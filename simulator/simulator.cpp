@@ -252,73 +252,73 @@ int main(int argc, char **argv)
         printf("%d %d %f\n", tt_pair_a[k], tt_pair_b[k], tt_pair_label[k]);
     }
 
-    // Sample connection pairs 
-    vector<int> src_list;
-    vector<int> dst_list;
-    vector<int> pair_a; 
-    vector<int> pair_b;
-    vector<int> pair_label;
-    rep(k, n) {
-        if (rand() % 100 < CONNECT_SAMPLE_RATIO * 100) {
-            src_list.push_back(k);
-        }
-    }
-    rep(src_k, src_list.size()) {
-        int src = src_list[src_k]; 
-        vector<int> fanin_cone(n); 
-        vector<int> fanout_cone(n);
-        rep(k, n){ 
-            fanin_cone[k] = 0;
-            fanout_cone[k] = 0;
-        }
-        // Find fanin cone
-        queue<int> q; 
-        q.push(src);
-        while (!q.empty()) {
-            int cur = q.front();
-            q.pop();
-            for (int k = 0; k < fanin_list[cur].size(); k++) {
-                int fanin = fanin_list[cur][k];
-                if (fanin_cone[fanin] == 0) {
-                    fanin_cone[fanin] = 1;
-                    q.push(fanin);
-                }
-            }
-        }
-        // Find fanout cone
-        q.push(src);
-        while (!q.empty()) {
-            int cur = q.front();
-            q.pop();
-            for (int k = 0; k < fanout_list[cur].size(); k++) {
-                int fanout = fanout_list[cur][k];
-                if (fanout_cone[fanout] == 0) {
-                    fanout_cone[fanout] = 1;
-                    q.push(fanout);
-                }
-            }
-        }
-        // Sample dst
-        rep(k, n) {
-            if (rand() % 100 < CONNECT_SAMPLE_RATIO * 100 && k != src) {
-                pair_a.push_back(src);
-                pair_b.push_back(k);
-                if (fanin_cone[k] == 1) {
-                    pair_label.push_back(1);
-                }
-                else if (fanout_cone[k] == 1) {
-                    pair_label.push_back(2);
-                }
-                else {
-                    pair_label.push_back(0);
-                }
-            }
-        }
-    }
+    // // Sample connection pairs 
+    // vector<int> src_list;
+    // vector<int> dst_list;
+    // vector<int> pair_a; 
+    // vector<int> pair_b;
+    // vector<int> pair_label;
+    // rep(k, n) {
+    //     if (rand() % 100 < CONNECT_SAMPLE_RATIO * 100) {
+    //         src_list.push_back(k);
+    //     }
+    // }
+    // rep(src_k, src_list.size()) {
+    //     int src = src_list[src_k]; 
+    //     vector<int> fanin_cone(n); 
+    //     vector<int> fanout_cone(n);
+    //     rep(k, n){ 
+    //         fanin_cone[k] = 0;
+    //         fanout_cone[k] = 0;
+    //     }
+    //     // Find fanin cone
+    //     queue<int> q; 
+    //     q.push(src);
+    //     while (!q.empty()) {
+    //         int cur = q.front();
+    //         q.pop();
+    //         for (int k = 0; k < fanin_list[cur].size(); k++) {
+    //             int fanin = fanin_list[cur][k];
+    //             if (fanin_cone[fanin] == 0) {
+    //                 fanin_cone[fanin] = 1;
+    //                 q.push(fanin);
+    //             }
+    //         }
+    //     }
+    //     // Find fanout cone
+    //     q.push(src);
+    //     while (!q.empty()) {
+    //         int cur = q.front();
+    //         q.pop();
+    //         for (int k = 0; k < fanout_list[cur].size(); k++) {
+    //             int fanout = fanout_list[cur][k];
+    //             if (fanout_cone[fanout] == 0) {
+    //                 fanout_cone[fanout] = 1;
+    //                 q.push(fanout);
+    //             }
+    //         }
+    //     }
+    //     // Sample dst
+    //     rep(k, n) {
+    //         if (rand() % 100 < CONNECT_SAMPLE_RATIO * 100 && k != src) {
+    //             pair_a.push_back(src);
+    //             pair_b.push_back(k);
+    //             if (fanin_cone[k] == 1) {
+    //                 pair_label.push_back(1);
+    //             }
+    //             else if (fanout_cone[k] == 1) {
+    //                 pair_label.push_back(2);
+    //             }
+    //             else {
+    //                 pair_label.push_back(0);
+    //             }
+    //         }
+    //     }
+    // }
 
-    // Output
-    printf("!!!! %d\n", pair_a.size());
-    rep(k, pair_a.size()) {
-        printf("%d %d %d\n", pair_a[k], pair_b[k], pair_label[k]);
-    }
+    // // Output
+    // printf("!!!! %d\n", pair_a.size());
+    // rep(k, pair_a.size()) {
+    //     printf("%d %d %d\n", pair_a[k], pair_b[k], pair_label[k]);
+    // }
 }

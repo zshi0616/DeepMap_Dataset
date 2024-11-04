@@ -1471,14 +1471,18 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
                     no_patterns=15000, 
                     simulator='./simulator/simulator', 
                     graph_filepath='', 
-                    res_filepath=''):
+                    res_filepath='', 
+                    head='', 
+                    max_pairs = 1e9):
     if graph_filepath == '':
-        graph_filepath = './tmp/tmp_graph_{}_{}_{}.txt'.format(
-            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        graph_filepath = './tmp/tmp_graph_{}_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000), 
+            head
         )
     if res_filepath == '':
-        res_filepath = './tmp/tmp_res_{}_{}_{}.txt'.format(
-            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        res_filepath = './tmp/tmp_res_{}_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000),
+            head
         )
     # Parse graph 
     no_nodes = len(x_data)
@@ -1546,18 +1550,24 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
     tt_index = torch.tensor(tt_index)
     tt_sim = torch.tensor(tt_sim)
     prob = torch.tensor(prob)
+    if len(tt_sim) > max_pairs:
+        max_pairs = int(max_pairs)
+        sample_flag = random.sample(range(len(tt_sim)), max_pairs)
+        tt_index = tt_index[sample_flag]
+        tt_sim = tt_sim[sample_flag]
     
-    # Connection pairs 
-    no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
-    con_index = []
-    con_label = []
-    for line in lines[no_nodes+2+no_tt_pairs: no_nodes+2+no_tt_pairs+no_connection_pairs]:
-        arr = line.replace('\n', '').split(' ')
-        assert len(arr) == 3
-        con_index.append([int(arr[0]), int(arr[1])])
-        con_label.append(int(arr[2]))
-    con_index = torch.tensor(con_index)
-    con_label = torch.tensor(con_label)
+    # # Connection pairs 
+    # no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
+    # con_index = []
+    # con_label = []
+    # for line in lines[no_nodes+2+no_tt_pairs: no_nodes+2+no_tt_pairs+no_connection_pairs]:
+    #     arr = line.replace('\n', '').split(' ')
+    #     assert len(arr) == 3
+    #     con_index.append([int(arr[0]), int(arr[1])])
+    #     con_label.append(int(arr[2]))
+    # con_index = torch.tensor(con_index)
+    # con_label = torch.tensor(con_label)
+    con_index, con_label = [], []
     
     # Remove 
     os.remove(graph_filepath)
