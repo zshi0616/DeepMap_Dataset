@@ -28,7 +28,9 @@ class OrderedData(Data):
         
 def process_single(sdf_path, cell_dict):
     try:
-        circuit_name = os.path.basename(sdf_path).split('.')[0]
+        design_name = sdf_path.split('/')[-2]
+        module_name = sdf_path.split('/')[-1].replace('.sdf', '')
+        circuit_name = design_name + '_' + module_name
         # Parse SDF 
         x_data, edge_index, fanin_list, fanout_list = parse_sdf(sdf_path)
         
@@ -79,7 +81,7 @@ def process_single(sdf_path, cell_dict):
         graph.backward_level = backward_level
         
         # DeepGate2 labels
-        prob, tt_pair_index, tt_sim, con_index, con_label = circuit_utils.cpp_simulation(
+        prob, tt_pair_index, tt_dis, con_index, con_label = circuit_utils.cpp_simulation(
             x_data, fanin_list, fanout_list, level_list, cell_dict, 
             no_patterns=15000
         )
@@ -97,7 +99,7 @@ def process_single(sdf_path, cell_dict):
             tt_pair_index = tt_pair_index.t().contiguous()
         graph.prob = prob
         graph.tt_pair_index = tt_pair_index
-        graph.tt_sim = tt_sim
+        graph.tt_dis = tt_dis
         
         # Statistics 
         graph.no_nodes = len(x_data)

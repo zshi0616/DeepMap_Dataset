@@ -1,8 +1,3 @@
-'''
-Utility functions for circuit: including random pattern generation, logic simulator, \
-    reconvergence identification, 
-Author: Sadaf Khan, Zhengyuan Shi and Min Li.
-'''
 # import torch
 from numpy.random import randint
 import copy
@@ -1466,6 +1461,98 @@ def get_fanin_fanout_cone(g, max_no_nodes=512):
     assert -1 not in fanin_fanout_cones[:no_nodes, :no_nodes]
     
     return fanin_fanout_cones
+
+def prepare_dg2_labels_cpp(g, no_patterns=15000, 
+                           simulator='./simulator/aig_simulator', 
+                           graph_filepath='', 
+                           res_filepath=''):
+    if graph_filepath == '':
+        graph_filepath = './tmp/tmp_graph_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        )
+    if res_filepath == '':
+        res_filepath = './tmp/tmp_res_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        )
+    # Parse graph 
+    PI_index = g['forward_index'][(g['forward_level'] == 0) & (g['backward_level'] != 0)]
+    no_pi = len(PI_index)
+    no_nodes = len(g['forward_index'])
+    level_list = [[] for I in range(g['forward_level'].max()+1)]
+    fanin_list = [[] for _ in range(no_nodes)]
+    for edge in g['edge_index'].t():
+        fanin_list[edge[1].item()].append(edge[0].item())
+    for k, idx in enumerate(g['forward_index']):
+        level_list[g['forward_level'][k].item()].append(k)
+    
+    # PI Cover
+    pi_cover = [[] for _ in range(no_nodes)]
+    for level in range(len(level_list)):
+        for idx in level_list[level]:
+            if level == 0:
+                pi_cover[idx].append(idx)
+            tmp_pi_cover = []
+            for pre_k in fanin_list[idx]:
+                tmp_pi_cover += pi_cover[pre_k]
+            tmp_pi_cover = list(set(tmp_pi_cover))
+            pi_cover[idx] += tmp_pi_cover
+    pi_cover_hash_list = []
+    for idx in range(no_nodes):
+        pi_cover_hash_list.append(hash_arr(pi_cover[idx]))    
+            
+    # Write graph to file
+    f = open(graph_filepath, 'w')
+    f.write('{} {} {}\n'.format(no_nodes, len(g['edge_index'][0]), no_patterns))
+    for idx in range(no_nodes):
+        f.write('{} {}\n'.format(g['gate'][idx].item(), g['forward_level'][idx].item()))
+    for edge in g['edge_index'].t():
+        f.write('{} {}\n'.format(edge[0].item(), edge[1].item()))
+    for idx in range(no_nodes):
+        f.write('{}\n'.format(pi_cover_hash_list[idx]))
+    f.close()
+    
+    # Simulation  
+    sim_cmd = '{} {} {}'.format(simulator, graph_filepath, res_filepath)
+    stdout, exec_time = run_command(sim_cmd)
+    f = open(res_filepath, 'r')
+    lines = f.readlines()
+    f.close()
+    prob = [-1] * no_nodes
+    for line in lines[:no_nodes]:
+        arr = line.replace('\n', '').split(' ')
+        prob[int(arr[0])] = float(arr[1])
+    tt_index = []
+    tt_sim = []
+    # TT pairs 
+    no_tt_pairs = int(lines[no_nodes].replace('\n', '').split(' ')[1])
+    for line in lines[no_nodes+1:no_nodes+1+no_tt_pairs]:
+        arr = line.replace('\n', '').split(' ')
+        assert len(arr) == 3
+        tt_index.append([int(arr[0]), int(arr[1])])
+        tt_sim.append(float(arr[2]))
+
+    tt_index = torch.tensor(tt_index)
+    tt_sim = torch.tensor(tt_sim)
+    prob = torch.tensor(prob)
+    
+    # Connection pairs 
+    # no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
+    con_index = []
+    con_label = []
+    # for line in lines[no_nodes+2+no_tt_pairs: no_nodes+2+no_tt_pairs+no_connection_pairs]:
+    #     arr = line.replace('\n', '').split(' ')
+    #     assert len(arr) == 3
+    #     con_index.append([int(arr[0]), int(arr[1])])
+    #     con_label.append(int(arr[2]))
+    con_index = torch.tensor(con_index)
+    con_label = torch.tensor(con_label)
+    
+    # Remove 
+    os.remove(graph_filepath)
+    os.remove(res_filepath)
+    
+    return prob, tt_index, tt_sim, con_index, con_label
+
 
 def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict, 
                     no_patterns=15000, 
