@@ -1558,14 +1558,18 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
                     no_patterns=15000, 
                     simulator='./simulator/simulator', 
                     graph_filepath='', 
-                    res_filepath=''):
+                    res_filepath='', 
+                    head='', 
+                    max_pairs = 1e9):
     if graph_filepath == '':
-        graph_filepath = './tmp/tmp_graph_{}_{}_{}.txt'.format(
-            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        graph_filepath = './tmp/tmp_graph_{}_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000), 
+            head
         )
     if res_filepath == '':
-        res_filepath = './tmp/tmp_res_{}_{}_{}.txt'.format(
-            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000)
+        res_filepath = './tmp/tmp_res_{}_{}_{}_{}.txt'.format(
+            time.strftime("%Y%m%d-%H%M%S"), threading.currentThread().ident, random.randint(0, 1000),
+            head
         )
     # Parse graph 
     no_nodes = len(x_data)
@@ -1633,6 +1637,11 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
     tt_index = torch.tensor(tt_index)
     tt_sim = torch.tensor(tt_sim)
     prob = torch.tensor(prob)
+    if len(tt_sim) > max_pairs:
+        max_pairs = int(max_pairs)
+        sample_flag = random.sample(range(len(tt_sim)), max_pairs)
+        tt_index = tt_index[sample_flag]
+        tt_sim = tt_sim[sample_flag]
     
     # Connection pairs 
     # no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
