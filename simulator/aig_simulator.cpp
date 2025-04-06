@@ -7,12 +7,11 @@
 #include <time.h>
 #include <cstdlib>
 #include <ctime>
-#include <algorithm>
 #define rep(p, q) for (int p=0; p<q; p++)
 #define PI 0
 #define AND 1
 #define NOT 2
-#define STATE_WIDTH 1
+#define STATE_WIDTH 16
 #define CONNECT_SAMPLE_RATIO 0.1
 using namespace std;
 
@@ -27,17 +26,6 @@ int countOnesInBinary(uint64_t num, int width) {
     return count;
 }
 
-int binaryVectorToDecimal(const std::vector<int>& vec) {
-    int decimal = 0;
-    int size = vec.size();
-
-    for(int i = 0; i < size; ++i) {
-        decimal += vec[size - 1 - i] * std::pow(2, i);
-    }
-
-    return decimal;
-}
-
 int main(int argc, char **argv)
 {
     srand((unsigned)time(0));
@@ -50,74 +38,40 @@ int main(int argc, char **argv)
     
     cout << "Read File: " << in_filename << endl;
     freopen(in_filename.c_str(), "r", stdin);
-    int n;  // number of gates
+    int n, m;  // number of gates
     int no_patterns; 
-    scanf("%d %d", &n, &no_patterns);
+    scanf("%d %d %d", &n, &m, &no_patterns);
     cout << "Number of gates: " << n << endl;
 
     // Graph
-    vector<vector<int> > truth_table(n);
+    vector<int> gate_list(n);
     vector<vector<int> > fanin_list(n);
     vector<vector<int> > fanout_list(n);
     vector<int> gate_levels(n);
     vector<int> pi_list;
-    vector<bool> const_0(n), const_1(n); 
     int max_level = 0;
 
     for (int k=0; k<n; k++) {
-        int level;
-        string tt_str; 
-        cin >> level >> tt_str; 
-        vector<int> tt; 
-
-        // Parse truth table 
-        if (tt_str[0] == 'P') {
-            tt.push_back(-1);
-            pi_list.push_back(k);
-        }
-        else if (tt_str[0] == 'C') {
-            if (tt_str[1] == '0') 
-                const_0[k] = true;
-            else if (tt_str[1] == '1')
-                const_1[k] = true;
-        }
-        else {
-            for (char c : tt_str) {
-                if (c == '1') {
-                    tt.push_back(1);
-                }
-                else if (c == '0') {
-                    tt.push_back(0);
-                }
-            }
-        }
-        reverse(tt.begin(), tt.end());
-        truth_table[k] = tt;
+        int type, level;
+        scanf("%d %d", &type, &level);
+        gate_list[k] = type;
         gate_levels[k] = level;
         if (level > max_level) {
             max_level = level;
+        }
+        if (type == PI) {
+            pi_list.push_back(k);
         }
     }
     vector<vector<int> > level_list(max_level+1);
     for (int k=0; k<n; k++) {
         level_list[gate_levels[k]].push_back(k);
     }
-    // Read fanin list 
-    for (int k=0; k<n; k++) {
-        int no_fanin;
-        cin >> no_fanin;
-
-        vector<int> fanin;
-        for (int l=0; l<no_fanin; l++) {
-            int fanin_gate;
-            cin >> fanin_gate;
-            if (fanin_gate != -1) {
-                fanin.push_back(fanin_gate);
-                fanout_list[fanin_gate].push_back(k);
-            }
-        }
-        fanin_list[k] = fanin;
-
+    for (int k=0; k<m; k++) {
+        int fanin, fanout;
+        scanf("%d %d", &fanin, &fanout);
+        fanin_list[fanout].push_back(fanin);
+        fanout_list[fanin].push_back(fanout);
     }
 
     int no_pi = pi_list.size();
@@ -138,38 +92,18 @@ int main(int argc, char **argv)
             states[pi] = rand() % int(std::pow(2, STATE_WIDTH)); 
             // cout << "PI: " << pi << " " << states[pi] << endl;
         }
-        // Const 0 and 1
-        rep (k, n) {
-            if (const_0[k]) {
-                states[k] = 0;
-            }
-            if (const_1[k]) {
-                states[k] = (uint64_t)std::pow(2, STATE_WIDTH) - 1;
-            }
-        }
-        // Logic Simulation 
+        // Combination
         for (int l = 1; l < max_level+1; l++) {
             for (int gate: level_list[l]) {
-                // Const 0 and 1 
-                if (const_0[gate] or const_1[gate]) {
-                    continue;
+                if (gate_list[gate] == AND) {
+                    uint64_t res = (states[fanin_list[gate][0]] & states[fanin_list[gate][1]]); 
+                    states[gate] = res;
+                    // cout << gate << ": " << (res & 1) << " " << (states[fanin_list[gate][0]] & 1) << " " << (states[fanin_list[gate][1]] & 1) << endl;
                 }
-                // Find truth table 
-                vector<int> fanin_state; 
-                for (int fanin: fanin_list[gate]) {
-                    // cout << fanin << ' ' << states[fanin] << endl; // Debug
-                    fanin_state.push_back(states[fanin]);
+                else if (gate_list[gate] == NOT) {
+                    uint64_t res = ~states[fanin_list[gate][0]]; 
+                    states[gate] = res;
                 }
-                // exit(0); // Debug
-                reverse(fanin_state.begin(), fanin_state.end());
-                int tt_val = binaryVectorToDecimal(fanin_state);
-                uint64_t tt_res = truth_table[gate][tt_val];
-                states[gate] = tt_res;
-
-                // // Debug 
-                // if (gate == 256) {
-                //     cout << tt_val << ' ' << tt_res << endl;
-                // }
             }
         }
         // Record
@@ -239,12 +173,12 @@ int main(int argc, char **argv)
                 cnt += countOnesInBinary(~(full_states[i][p] ^ full_states[j][p]), STATE_WIDTH);
                 all_bits += STATE_WIDTH; 
             }
-            float tt_sim = 1 - (float)cnt / all_bits;
-            if (tt_sim > 0.2 and tt_sim < 0.8)
+            float tt_dis = 1 - (float)cnt / all_bits;
+            if (tt_dis > 0.2 and tt_dis < 0.8)
                 continue;
             tt_pair_a.push_back(i);
             tt_pair_b.push_back(j);
-            tt_pair_label.push_back(tt_sim);
+            tt_pair_label.push_back(tt_dis);
         }
     }
     printf("!!!! %d\n", tt_pair_a.size());
