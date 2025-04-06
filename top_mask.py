@@ -15,8 +15,8 @@ import utils.circuit_utils as circuit_utils
 import utils.dataset_utils as dataset_utils 
 
 sdf_dir = './data/sub_v_dcout'
-genlib_path = './raw_data/genlib/sky130.csv'
-read_graph_npz = '/Users/zhengyuanshi/studio/CircuitX/npz/test.npz'
+genlib_path = './genlib/sky130.csv'
+read_graph_npz = './npz/test.npz'
 
 save_graph_npz = 'npz/test.npz'
 
@@ -72,6 +72,8 @@ if __name__ == '__main__':
         aig_backward_index = aig[circuit_name]['backward_index']
         aig_forward_level = aig[circuit_name]['forward_level']
         aig_backward_level = aig[circuit_name]['backward_level']
+        aig_tt_pair_index = aig[circuit_name]['tt_pair_index']
+        aig_tt_sim = aig[circuit_name]['tt_sim']
         
         print('Parse: {} ({:} / {:}), Size: {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
             circuit_name, sdf_k, len(sdf_list), len(x_data), 
@@ -80,6 +82,8 @@ if __name__ == '__main__':
         ))
         
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+        if len(edge_index) == 0 or len(x_data) < 5:
+            continue
         
         # Circuit features
         truth_table = []
@@ -118,6 +122,8 @@ if __name__ == '__main__':
         graph.aig_forward_level = aig_forward_level
         graph.aig_backward_level = aig_backward_level
         graph.aig_gate = torch.zeros((len(aig_x_data), 1), dtype=torch.float)
+        graph.aig_tt_pair_index = aig_tt_pair_index
+        graph.aig_tt_sim = aig_tt_sim
         for idx in range(len(aig_x_data)):
             if aig_x_data[idx][1] == 1:
                 graph.aig_gate[idx] = 1

@@ -8,41 +8,27 @@ import time
 import threading
 import copy
 import numpy as np 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.utils import run_command, hash_arr
 from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 
-raw_dir = 'LCM_output_flatten'
+raw_dir = '/Users/zhengyuanshi/studio/DeepCircuitX_v2/data/sub_v_dcout'
 # genlib_path = 'genlib/sky130.csv'
-genlib_path = './raw_data/genlib/sky130.csv'
+genlib_path = '/Users/zhengyuanshi/studio/DeepCircuitX_v2/genlib/sky130.csv'
 
-save_graph_npz = 'graphs.npz'
-ff_keys = ['dfrtp','sky130_fd_sc_hd__edfxtp_1', 'dfrtn', 'dfxtp', 'dfbbn', 'dlrtp', 'einvn', 'dlxtp', 'dfsbp', 'dfstp', 'edfxbp']
-
+save_graph_npz = 'npz/iccad_dc_pm.npz'
+ff_keys = ['dfr', 'dfb', 'dfx', 'dfs', 'dlx', 'dlr', 'einvn']
+thread_num = 8
 
 class OrderedData(Data):
     def __init__(self): 
         super().__init__()
         
-if __name__ == '__main__':
-    cell_dict = circuit_utils.parse_genlib(genlib_path)
-    sdf_list = glob.glob(os.path.join(raw_dir, '*/*.sdf'))
-    tot_time = 0
-    graphs = {}
-    
-    for sdf_k, sdf_path in enumerate(sdf_list):
-        # if 'ALSU-Arithmetic-Logic-Shift-Unit' not in sdf_path:
-        #     continue
-        
-        print('\n===============================================')
-        print(sdf_path)
-        start_time = time.time()
-        circuit_name = sdf_path.split('/')[-2]
-        if not os.path.exists(sdf_path):
-            print('[INFO] Skip: {:}, No SDF'.format(circuit_name))
-            continue
-        
+def process_single(sdf_path, cell_dict):
+    try:
+        circuit_name = os.path.basename(sdf_path).split('.')[0]
         # Parse SDF 
         x_data, edge_index, fanin_list, fanout_list = parse_sdf(sdf_path)
         
@@ -52,14 +38,8 @@ if __name__ == '__main__':
         # Check empty
         if len(x_data) < 10 or len(edge_index) < 10:
             print('[INFO] Skip empty design: {:}'.format(circuit_name))
-            continue
+            raise ValueError('Empty design')
         
-        # Statistics
-        print('Parse: {} ({:} / {:}), Size: {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
-            circuit_name, sdf_k, len(sdf_list), len(x_data), 
-            tot_time, tot_time / ((sdf_k + 1) / len(sdf_list)) - tot_time, 
-            len(graphs)
-        ))
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
         
         # Circuit features
@@ -82,8 +62,8 @@ if __name__ == '__main__':
         loop = circuit_utils.find_loop(fanout_list)
         if len(loop) > 0:
             print('Loop: ', loop)
-            continue
-              
+            raise ValueError('Loop')
+                
         forward_level, forward_index, backward_level, backward_index = dg.return_order_info(edge_index, len(x_data))
         level_list = circuit_utils.get_level(x_data, fanin_list, fanout_list)
         
@@ -104,7 +84,7 @@ if __name__ == '__main__':
             no_patterns=15000
         )
         if len(prob) == 0:
-            continue
+            raise ValueError('Simulation failed')
         for idx in range(len(x_data)):
             if len(fanin_list[idx]) == 0 and len(fanout_list[idx]) == 0:
                 prob[idx] = 0.5
@@ -122,20 +102,48 @@ if __name__ == '__main__':
         # Statistics 
         graph.no_nodes = len(x_data)
         graph.no_edges = len(edge_index[0])
-        end_time = time.time()
-        tot_time += end_time - start_time
         
         # Save 
         g = {}
-        for key in graph.keys():
+        for key in graph.keys:
             if key == 'name' or key == 'batch' or key == 'ptr':
                 continue
             if torch.is_tensor(graph[key]):
                 g[key] = graph[key].cpu().numpy()
             else:
                 g[key] = graph[key]
-        graphs[circuit_name] = copy.deepcopy(g)
+        print('[INFO] Circuit: {:}, Nodes: {:}, Edges: {:}'.format(
+            circuit_name, graph.no_nodes, graph.no_edges))
+        return {'graph': g, 'name': circuit_name}
+    except Exception as e:
+        print('[ERROR] Circuit: {:}, Error: {:}'.format(circuit_name, e))
+        return None
         
+if __name__ == '__main__':
+    cell_dict = circuit_utils.parse_genlib(genlib_path)
+    sdf_list = glob.glob(os.path.join(raw_dir, '*/*.sdf'))
+    graphs = {}
+    start_time = time.time()
+    
+    with ThreadPoolExecutor(max_workers=thread_num) as executor:
+        feature_to_run = {
+            executor.submit(process_single, sdf_path, cell_dict): sdf_path for sdf_path in sdf_list
+        }
+        completed = 0
+        
+        for future in as_completed(feature_to_run):
+            completed += 1
+            result = future.result()
+            if result is not None:
+                graphs[result['name']] = result['graph']
+            
+            print('Completed: {:} / {:}, Time: {:.2f}s, ETA: {:.2f}s, Succ: {:}'.format(
+                completed, len(sdf_list), 
+                time.time() - start_time, 
+                (time.time() - start_time) / completed * (len(sdf_list) - completed), 
+                len(graphs)
+            ))
+
     np.savez_compressed(save_graph_npz, circuits=graphs)
     print(save_graph_npz)
     print(len(graphs))

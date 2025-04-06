@@ -2,6 +2,7 @@ tmp
 dataset
 data
 tmp
+npz
 
 simulator/simulator
 simulator/wl_simulator

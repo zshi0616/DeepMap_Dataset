@@ -1548,14 +1548,14 @@ def cpp_simulation( x_data, fanin_list, fanout_list, level_list, cell_dict,
     prob = torch.tensor(prob)
     
     # Connection pairs 
-    no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
+    # no_connection_pairs = int(lines[no_nodes+1+no_tt_pairs].replace('\n', '').split(' ')[1])
     con_index = []
     con_label = []
-    for line in lines[no_nodes+2+no_tt_pairs: no_nodes+2+no_tt_pairs+no_connection_pairs]:
-        arr = line.replace('\n', '').split(' ')
-        assert len(arr) == 3
-        con_index.append([int(arr[0]), int(arr[1])])
-        con_label.append(int(arr[2]))
+    # for line in lines[no_nodes+2+no_tt_pairs: no_nodes+2+no_tt_pairs+no_connection_pairs]:
+    #     arr = line.replace('\n', '').split(' ')
+    #     assert len(arr) == 3
+    #     con_index.append([int(arr[0]), int(arr[1])])
+    #     con_label.append(int(arr[2]))
     con_index = torch.tensor(con_index)
     con_label = torch.tensor(con_label)
     
