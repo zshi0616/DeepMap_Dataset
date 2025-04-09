@@ -17,7 +17,7 @@ import utils.circuit_utils as circuit_utils
 
 raw_dir = '/Users/zhengyuanshi/studio/DeepCircuitX_v2/data/sub_aig'
 save_graph_npz = 'npz/iccad_dc_aig.npz'
-thread_num = 8
+thread_num = 4
 gate_to_index={'PI': 0, 'AND': 1, 'NOT': 2, 'DFF': 3}
 
 class OrderedData(Data):

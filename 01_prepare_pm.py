@@ -20,7 +20,7 @@ genlib_path = '/Users/zhengyuanshi/studio/DeepCircuitX_v2/genlib/sky130.csv'
 
 save_graph_npz = 'npz/iccad_dc_pm.npz'
 ff_keys = ['dfr', 'dfb', 'dfx', 'dfs', 'dlx', 'dlr', 'einvn']
-thread_num = 8
+thread_num = 4
 
 class OrderedData(Data):
     def __init__(self): 

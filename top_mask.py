@@ -15,13 +15,6 @@ from parse_graph import parse_sdf
 import utils.circuit_utils as circuit_utils
 import utils.dataset_utils as dataset_utils 
 
-<<<<<<< HEAD
-sdf_dir = './data/sub_v_dcout'
-genlib_path = './genlib/sky130.csv'
-read_graph_npz = './npz/test.npz'
-
-save_graph_npz = 'npz/test.npz'
-=======
 def get_args():
     parser = argparse.ArgumentParser(description='Prepare DeepCell Dataset')
     parser.add_argument('--sdf_dir', type=str, default='../../data/lcm/sub_v_dcout', help='SDF directory')
@@ -43,7 +36,6 @@ def get_args():
         args.output_npz_path = './npz/{}_{:}_{:}.npz'.format(args.save_name, args.start_idx, args.end_idx)
     
     return args
->>>>>>> 90a72ef3b9250f1eceb4288ab871207a02968822
 
 class OrderedData(Data):
     def __init__(self): 
